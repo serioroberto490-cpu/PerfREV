@@ -1,0 +1,23 @@
+# Distributable packages are preserved locally, never staged automatically.
+/dist/
+
+# Local reference audio/video, not required by perfREV or ReaPack.
+/materiale/
+
+# Regenerable output and local environments
+/build/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.venv/
+venv/
+.tox/
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
