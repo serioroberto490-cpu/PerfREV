@@ -28,6 +28,7 @@ end
 
 local function n(value, decimals) return string.format("%."..(decimals or 2).."f",value) end
 function M.type_name(s)
+  if s.rev_type==#M.types and s.rev_custom_type and s.rev_custom_type~="" then return s.rev_custom_type end
   return M.types[s.rev_type][1]
 end
 

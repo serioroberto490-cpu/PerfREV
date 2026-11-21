@@ -45,4 +45,6 @@ s.rev_early=-50 s.rev_tail=4 s.rev_gain=2 s.rev_size=0 s.rev_diffusion=0
 check(#R.warnings(s,100)==3)
 s.rev_profile="generic"
 check(#R.warnings(s,100)==0,"RVerb-specific caps must not constrain generic plugins")
+s.rev_type=16 s.rev_custom_type="IR studio personale"
+check(R.type_name(s)=="IR studio personale")
 print("Reverb: "..count.." assertions passed")

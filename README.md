@@ -163,7 +163,7 @@ locali: non integrano i futuri cambi di tempo.
   decorrelazione modificabili indipendentemente dalla durata.
 - Routing send/insert con consiglio Wet/Dry 100% sul send, senza imposizioni.
 - Copia del tempo in **secondi** dallo specchietto e pre-delay in ms;
-  report completo in console include anche il tempo in ms.
+  nella sintesi anche copia separata in **ms**. Report completo in console.
 - Avvisi per i limiti RVerb Time (0.1–20 s), pre-delay (-160/+160 ms),
   livelli e tipi non presenti; nessun clamp specifico del plugin o cambio forzato.
 
@@ -305,6 +305,7 @@ Da questa cartella, con Lua 5.3+:
 ```text
 lua tests/test_core.lua
 lua tests/test_reverb.lua
+lua tests/test_theme.lua
 lua tests/test_ui.lua
 ```
 

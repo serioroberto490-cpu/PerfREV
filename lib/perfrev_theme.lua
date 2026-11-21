@@ -69,7 +69,8 @@ function M.paint(s,w,h)
     cached=key
   end
   gfx.set(1,1,1,1)
-  gfx.blit(2,1,0)
+  -- Destination must be explicit: gfx.x/y retain the last text position.
+  gfx.blit(2,1,0,0,0,w,h,0,0,w,h)
 end
 function M.surface(x,y,w,h,s)
   rgba(M.palette.panel,0.96)

@@ -2,8 +2,9 @@
 
 ## Stato reale
 
-I sorgenti in sviluppo sono **0.2.0, build 2**. Non e' stato creato un nuovo
-pacchetto 0.2.0, ne' un installer, tag Git, commit, push o GitHub Release.
+I sorgenti in sviluppo sono **0.2.0, build 2**. Questo intervento non genera
+un nuovo pacchetto 0.2.0, installer o tag, e non esegue commit, push o pubblicazioni.
+Gli eventuali commit del proprietario sono separati dalle operazioni degli strumenti.
 I pacchetti storici 0.1.0 eventualmente presenti in `dist/` restano immutati.
 Il test visivo su REAPER e sui VST reali e' distinto dai test automatici.
 

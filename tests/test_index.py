@@ -42,6 +42,23 @@ class IndexTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 module.build(url, Path("unused.xml"))
 
+    def test_preserves_historical_version_and_pinned_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "index.xml"
+            module.build("https://example.org/current", target)
+            tree = ET.parse(target)
+            package = tree.getroot().find("./category/reapack")
+            old = ET.SubElement(package, "version", {"name": "0.0.1"})
+            ET.SubElement(old, "source", {"main": "main"}).text = "https://example.org/immutable/script.lua"
+            tree.write(target, encoding="utf-8")
+            module.build("https://example.org/current", target)
+            package = ET.parse(target).getroot().find("./category/reapack")
+            self.assertEqual(len(package.findall("version")), 2)
+            self.assertEqual(
+                package.find("./version[@name='0.0.1']/source").text,
+                "https://example.org/immutable/script.lua",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

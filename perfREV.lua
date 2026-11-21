@@ -53,7 +53,7 @@ local defaults = {
   width = 6, length = 8, height = 3, temperature = 20,
   sx = 2, sy = 2, sz = 1.5, lx = 3, ly = 6, lz = 1.5,
   a1 = 0.2, a2 = 0.2, a3 = 0.2, a4 = 0.2, a5 = 0.3, a6 = 0.2,
-  rev_profile = "generic", rev_route = "send", rev_type = 4,
+  rev_profile = "generic", rev_route = "send", rev_type = 4, rev_custom_type = "Personalizzato",
   rev_time_mode = "musical", rev_time_s = 1.2,
   rev_size = 50, rev_diffusion = 75, rev_shape = 3.5,
   rev_early = -6, rev_tail = 0, rev_wet = 100, rev_gain = 0,
@@ -89,6 +89,7 @@ local rev_ranges = {
 }
 for key,range in pairs(rev_ranges) do state[key]=C.clamp(state[key],range[1],range[2]) end
 state.rev_decorr=math.floor(state.rev_decorr)
+state.rev_custom_type=state.rev_custom_type:gsub("[\r\n|]"," "):sub(1,40)
 
 local function room_input()
   return {width = state.width, length = state.length, height = state.height, temperature = state.temperature,
@@ -323,6 +324,8 @@ local function reverb_page(y)
   local ms=R.time_ms(state,bpm)
   local label,meaning,use=R.category(ms/1000)
   text(26,y,label.." - "..N(ms/1000,3).." s / "..N(ms,2).." ms","accent",20)
+  if button("Copia s",700,y,110,false) then copy(N(ms/1000,3)) end
+  if button("Copia ms",820,y,126,false) then copy(N(ms,3)) end
   y=paragraph(26,y+32,meaning.." "..use,916,"text",14)+9
   text(26,y,"RT60: calo di 60 dB, non stop esatto. Un gate o un inviluppo possono troncare la coda.","amber",14)
   y=y+38
@@ -339,7 +342,15 @@ local function reverb_page(y)
     end
     gfx.x,gfx.y=553*scale,(y+29)*scale
     local choice=gfx.showmenu(table.concat(names,"|"))
-    if choice>=1 and choice<=#R.types then state.rev_type=choice end
+    if choice>=1 and choice<=#R.types then
+      if choice==#R.types then
+        local ok,name=reaper.GetUserInputs("Nome algoritmo / IR personalizzato",1,"Nome,extrawidth=140",state.rev_custom_type)
+        if ok and name:match("%S") then
+          state.rev_custom_type=name:gsub("[\r\n|]"," "):sub(1,40)
+          state.rev_type=choice
+        end
+      else state.rev_type=choice end
+    end
   end
   y=y+44
   text(26,y,"Pre-delay musicale: clic = valore in ms, non segue i successivi cambi di BPM.","muted",13)
