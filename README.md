@@ -6,8 +6,8 @@ Firma locale nel footer di ogni scheda: **RS ecosystem**.
 ## Stato
 
 <!-- perfREV:version:start -->
-Versione corrente: **0.1.0**, build **1**.
-Pacchetto corrente: `dist/perfREV-0.1.0-build1.zip`.
+Versione corrente: **0.2.0**, build **2**.
+ZIP previsto (non generato automaticamente): `dist/releases/v0.2.0/perfREV-0.2.0-build2.zip`.
 <!-- perfREV:version:end -->
 
 Non elabora o ascolta audio e non modifica progetto,
@@ -41,10 +41,11 @@ ReaPack scarica e installa automaticamente lo script e le sue librerie:
 Per gli aggiornamenti: **Extensions > ReaPack > Synchronize packages**.
 La connessione Internet serve per installare/aggiornare, non per usare perfREV.
 ReaPack installa solo `perfREV.lua`, `lib/perfrev_core.lua` e
-`lib/perfrev_version.lua`: non scarica test, strumenti o materiale audio/video.
+`lib/perfrev_version.lua`, `lib/perfrev_reverb.lua`, `lib/perfrev_theme.lua`:
+non scarica test, strumenti o materiale audio/video.
 
 **Disponibilita':** l'URL funzionera' dopo che il proprietario avra' reso pubblica
-la repository e pubblicato `index.xml` insieme ai tre file Lua.
+la repository e pubblicato `index.xml` insieme ai cinque file Lua.
 Un errore 404 prima di questi passaggi non indica un problema dello script.
 
 ### Aggiungere un tasto nella toolbar
@@ -84,7 +85,9 @@ python tools/project_version.py --check
 python tools/package.py
 ```
 
-Il secondo crea (o rigenera) il pacchetto della build corrente. Per **ogni nuova
+Il secondo crea il pacchetto della build corrente **solo quando richiesto**:
+non e' necessario per ReaPack. Se esiste gia', rifiuta contenuti diversi.
+Per **ogni nuova
 build da distribuire**, incrementare il contatore e creare il nuovo pacchetto:
 
 ```text
@@ -110,6 +113,12 @@ Anche `materiale/` e' esclusa da Git: audio e video di riferimento rimangono
 locali, non servono all'app e non vengono pubblicati.
 Codice Lua, test, strumenti di manutenzione, documentazione e `index.xml`
 restano invece nel repository.
+I nuovi archivi autorizzati usano `dist/releases/vX.Y.Z/`; ZIP storici
+mantengono il loro percorso. La versione dei sorgenti non implica un nuovo ZIP:
+per questo aggiornamento i sorgenti sono 0.2.0/build 2, mentre gli eventuali
+pacchetti locali 0.1.0 non sono stati rigenerati.
+Vedi [procedura release](docs/RELEASES.md), [changelog](docs/CHANGELOG.md)
+e [note 0.2.0](docs/releases/v0.2.0.md).
 
 ## Funzioni
 
@@ -134,17 +143,47 @@ locali: non integrano i futuri cambi di tempo.
 
 ### Riverbero
 
-- Decay in multipli del quarto, anche personalizzati.
-- Pre-delay libero 0–500 ms oppure selezionato da 1/16, 1/32 o 1/64.
+- Riquadri con durata in secondi/ms, numero di quarti e selezione visibile.
+- **Corto <1 s**: ambiente contenuto; **medio 1-2 s**: profondita' percepibile;
+  **lungo >2 s**: coda avvolgente, maggiore rischio di sovrapposizione.
+  Sono categorie creative, non dimensioni della stanza o preset universali.
+- Tempo in multipli del quarto, anche personalizzati, **oppure secondi liberi**
+  indipendenti dai BPM (0.1–60 s). Il cambio di modalita' conserva entrambe le scelte.
+- Pre-delay libero -160–500 ms oppure selezionato da 1/16, 1/32 o 1/64.
+  I valori negativi sono una possibilita' specifica di alcuni plugin, non una
+  raccomandazione: in RVerb ritardano il dry e possono compromettere la sync.
 - Selezionare un pre-delay musicale ne memorizza il valore corrente in ms:
   non resta agganciato ai BPM successivi.
-- Copia separata di decay e pre-delay; report in console.
-- Somma pre-delay + RT60 **nominale**, non promessa di una fine della coda.
-- Breve <1 s, medio 1–2 s, lungo >2 s: semplici etichette creative.
+- Specchietto con nome comune, nome nel plugin, valore e significato.
+- Riferimento **generico** o **Waves RVerb come esempio**, senza integrazioni.
+- Tutti i 12 tipi RVerb: Hall 1/2, Room, Chamber, Church, Plate 1/2, Reverse,
+  Gated, Non-Linear, EchoVerb, ResoVerb; anche Spring, Ambience, Convolution/IR
+  e Personalizzato per altri VST.
+- Tipo, Size, Diffusion, forma, early/tail level, Wet/Dry, gain, damping, EQ e
+  decorrelazione modificabili indipendentemente dalla durata.
+- Routing send/insert con consiglio Wet/Dry 100% sul send, senza imposizioni.
+- Copia del tempo in **secondi** dallo specchietto e pre-delay in ms;
+  report completo in console include anche il tempo in ms.
+- Avvisi per i limiti RVerb Time (0.1–20 s), pre-delay (-160/+160 ms),
+  livelli e tipi non presenti; nessun clamp specifico del plugin o cambio forzato.
 
 **RT60** e' il tempo per un calo di 60 dB, non una fine netta.
 Il parametro "decay" dei diversi plugin puo' avere definizioni differenti.
 Non sottraiamo automaticamente il pre-delay dal decay.
+In **RVerb** il tempo va in **Time**, NON in **Decay**: quest'ultimo controlla
+la non linearita' della coda (0.04–3.5; 3.5 lineare). Il suo pre-delay separa
+l'inizio della coda dal dry con le prime riflessioni. Size non e' in metri,
+Decorrelation 0–6 non equivale a una percentuale di width, e i rapporti di
+damping non vanno trasferiti alla cieca fra plugin.
+Le frequenze/scale effettive vanno verificate nella versione del VST utilizzata.
+
+### Tema statico a vetrate
+
+Tutte le schede usano rosoni colorati, nervature di pietra e luce calda/fredda
+ispirati all'atmosfera di una cattedrale a vetrate. E' grafica vettoriale locale,
+non una fotografia della Sagrada Familia, senza download, font esterni o animazioni.
+I pannelli scuri separano testi e comandi dalla decorazione; la selezione ha
+anche un indicatore testuale. TAP e trascinamento restano interattivi.
 
 ### Stanza
 
@@ -230,7 +269,8 @@ Repository: <https://github.com/serioroberto490-cpu/PerfREV>.
    ```
 
 3. Pubblicare sul ramo `main` almeno `index.xml`, `perfREV.lua`,
-   `lib/perfrev_core.lua` e `lib/perfrev_version.lua`.
+   `lib/perfrev_core.lua`, `lib/perfrev_version.lua`, `lib/perfrev_reverb.lua`
+   e `lib/perfrev_theme.lua`.
    Commit e push restano operazioni manuali del proprietario.
 4. Verificare che l'URL di `index.xml` sia accessibile senza login e provare
    l'installazione con ReaPack.
@@ -243,7 +283,7 @@ I riferimenti al ramo `main` sono utili per l'avvio, ma non congelano i vecchi
 file: per versioni storiche e downgrade usare riferimenti immutabili.
 
 Il generatore legge versione/build dai metadati e non usa la rete. Python serve solo a chi pubblica,
-non agli utenti dello script. L'indice include il main e le due librerie con il
+non agli utenti dello script. L'indice include il main e le quattro librerie con il
 percorso relativo conservato. Per aggiornare: usare gli strumenti di versionamento e mantenere
 nell'indice anche le vecchie versioni se si vuole permettere il downgrade.
 ReaPack identifica gli aggiornamenti tramite la versione del pacchetto:
@@ -264,6 +304,7 @@ Da questa cartella, con Lua 5.3+:
 
 ```text
 lua tests/test_core.lua
+lua tests/test_reverb.lua
 lua tests/test_ui.lua
 ```
 
@@ -283,6 +324,7 @@ python -m unittest discover -s tests -p "test_*.py"
 - [iZotope: riverbero e parametri](https://www.izotope.com/community/blog/what-is-reverb)
 - [iZotope: EQ, ducking e timing](https://www.izotope.com/community/blog/essential-tips-for-mixing-reverb)
 - [REAPER ReaScript API](https://www.reaper.fm/sdk/reascript/reascripthelp.html)
+- [Waves Renaissance Reverb: manuale ufficiale](https://www.waves.com/1lib/pdf/plugins/renaissance-reverb.pdf)
 
 Le fonti sono riferimenti leggibili nel README o stampabili in console:
 la firma non e' un link e l'app non effettua richieste online.

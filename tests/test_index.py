@@ -21,7 +21,7 @@ class IndexTests(unittest.TestCase):
             package = root.find("./category/reapack")
             self.assertEqual(package.attrib["type"], "script")
             sources = package.findall("./version/source")
-            self.assertEqual(len(sources), 3)
+            self.assertEqual(len(sources), 5)
             self.assertEqual(sources[0].attrib["main"], "main")
             self.assertEqual(sources[0].attrib["file"], "perfREV.lua")
             self.assertNotIn("main", sources[1].attrib)
@@ -31,6 +31,8 @@ class IndexTests(unittest.TestCase):
                 "https://example.org/perfREV/v0.1.0/lib/perfrev_core.lua",
             )
             self.assertEqual(sources[2].attrib["file"], "lib/perfrev_version.lua")
+            self.assertEqual(sources[3].attrib["file"], "lib/perfrev_reverb.lua")
+            self.assertEqual(sources[4].attrib["file"], "lib/perfrev_theme.lua")
             release, build = module.read_metadata()
             self.assertEqual(package.find("./version").attrib["name"], release)
             self.assertEqual(package.find("./version/changelog").text, f"Build {build}")

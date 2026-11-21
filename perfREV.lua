@@ -1,10 +1,12 @@
 -- @description perfREV - Tempo, delay, riverbero e stanza
--- @version 0.1.0
+-- @version 0.2.0
 -- @author perfREV
 -- @license MIT
 -- @provides
 --   [nomain] lib/perfrev_core.lua
 --   [nomain] lib/perfrev_version.lua
+--   [nomain] lib/perfrev_reverb.lua
+--   [nomain] lib/perfrev_theme.lua
 -- @about
 --   Calcolatore non distruttivo: BPM progetto/manuali/TAP, delay, riverbero,
 --   prime riflessioni di una stanza rettangolare e guida al mix.
@@ -21,6 +23,18 @@ if not loaded then
   return
 end
 local C, N = core, core.number
+local function load_module(name)
+  local ok, result = pcall(dofile, directory .. "lib/" .. name .. ".lua")
+  if not ok or type(result) ~= "table" then
+    reaper.MB("Libreria mancante o non valida: "..name.."\nReinstalla perfREV con tutta la cartella lib.",
+      "perfREV",0)
+    return nil
+  end
+  return result
+end
+local R = load_module("perfrev_reverb")
+local theme = load_module("perfrev_theme")
+if not R or not theme then return end
 local version_ok, metadata = pcall(dofile, directory .. "lib/perfrev_version.lua")
 if not version_ok or type(metadata) ~= "table" or type(metadata.version) ~= "string"
   or not metadata.version:match("^%d+%.%d+%.%d+$") or not C.finite(metadata.build)
@@ -39,6 +53,12 @@ local defaults = {
   width = 6, length = 8, height = 3, temperature = 20,
   sx = 2, sy = 2, sz = 1.5, lx = 3, ly = 6, lz = 1.5,
   a1 = 0.2, a2 = 0.2, a3 = 0.2, a4 = 0.2, a5 = 0.3, a6 = 0.2,
+  rev_profile = "generic", rev_route = "send", rev_type = 4,
+  rev_time_mode = "musical", rev_time_s = 1.2,
+  rev_size = 50, rev_diffusion = 75, rev_shape = 3.5,
+  rev_early = -6, rev_tail = 0, rev_wet = 100, rev_gain = 0,
+  rev_lf = 200, rev_lratio = 1, rev_hf = 6000, rev_hratio = 1,
+  rev_eqlf = 200, rev_eqlgain = 0, rev_eqhf = 6000, rev_eqhgain = 0, rev_decorr = 0,
 }
 local state = {}
 for key, value in pairs(defaults) do
@@ -53,10 +73,22 @@ state.bpm = C.clamp(state.bpm, 20, 400)
 state.tab = C.clamp(math.floor(state.tab), 1, 5)
 state.numerator = C.clamp(math.floor(state.numerator), 1, 32)
 if not ({[1]=true,[2]=true,[4]=true,[8]=true,[16]=true,[32]=true})[state.denominator] then state.denominator = 4 end
-state.predelay = C.clamp(state.predelay, 0, 500)
+state.predelay = C.clamp(state.predelay, -160, 500)
 state.feedback = C.clamp(state.feedback, 1, 95)
 state.decay_q = C.clamp(state.decay_q, 0.25, 32)
 if not ({[1]=true,[2]=true,[4]=true,[8]=true,[16]=true,[32]=true,[64]=true})[state.delay_note] then state.delay_note = 4 end
+if state.rev_profile ~= "rverb" then state.rev_profile = "generic" end
+if state.rev_route ~= "insert" then state.rev_route = "send" end
+if state.rev_time_mode ~= "free" then state.rev_time_mode = "musical" end
+state.rev_type = C.clamp(math.floor(state.rev_type),1,#R.types)
+local rev_ranges = {
+  rev_time_s={0.1,60},rev_size={0,100},rev_diffusion={0,100},rev_shape={0.04,3.5},
+  rev_early={-60,6},rev_tail={-60,6},rev_wet={0,100},rev_gain={-60,12},
+  rev_lf={16,20000},rev_lratio={0.1,2},rev_hf={16,20000},rev_hratio={0.1,2},
+  rev_eqlf={16,20000},rev_eqlgain={-24,12},rev_eqhf={16,20000},rev_eqhgain={-24,12},rev_decorr={0,6},
+}
+for key,range in pairs(rev_ranges) do state[key]=C.clamp(state[key],range[1],range[2]) end
+state.rev_decorr=math.floor(state.rev_decorr)
 
 local function room_input()
   return {width = state.width, length = state.length, height = state.height, temperature = state.temperature,
@@ -77,10 +109,7 @@ local scale, scroll = 1, 0
 local drawing_content = false
 local content_bottom = 0
 local bpm, numerator, denominator, project_position = 120, 4, 4, 0
-local palette = {
-  bg = {0.055,0.07,0.095}, panel = {0.10,0.13,0.17}, text = {0.91,0.94,0.97},
-  muted = {0.57,0.65,0.73}, accent = {0.20,0.83,0.69}, amber = {1,0.72,0.34},
-}
+local palette = theme.palette
 
 local function color(name) gfx.set(table.unpack(palette[name] or palette.text)) end
 local function rect(x,y,w,h,name)
@@ -96,15 +125,31 @@ local function inside(x,y,w,h)
   if drawing_content and (my<190 or my>content_bottom) then return false end
   return mx>=x and mx<=x+w and my>=y and my<=y+h
 end
-local function button(label,x,y,w,active)
-  local hover = inside(x,y,w,29)
-  rect(x,y,w,29,active and "accent" or "panel")
+local function button(label,x,y,w,active,height)
+  height=height or 29
+  local hover = inside(x,y,w,height)
+  rect(x,y,w,height,active and "accent" or "panel")
+  color(active and "amber" or "stone")
+  gfx.rect(x*scale,y*scale,w*scale,height*scale,0)
   if hover then
-    gfx.set(1,1,1,0.08) gfx.rect(x*scale,y*scale,w*scale,29*scale,1)
+    gfx.set(1,1,1,0.08) gfx.rect(x*scale,y*scale,w*scale,height*scale,1)
   end
   text(x+9,y+6,label,active and "bg" or "text",14)
   if pressed and not consumed and hover then consumed = true return true end
   return false
+end
+local function paragraph(x,y,value,width,name,size)
+  size=size or 14
+  gfx.setfont(1,"Arial",math.floor(size*scale))
+  local line=""
+  for word in tostring(value):gmatch("%S+") do
+    local next_line=line=="" and word or line.." "..word
+    if line~="" and gfx.measurestr(next_line)>width*scale then
+      text(x,y,line,name,size) y=y+size+5 line=word
+    else line=next_line end
+  end
+  if line~="" then text(x,y,line,name,size) y=y+size+5 end
+  return y
 end
 local function notice(message)
   status, status_until = message, reaper.time_precise()+5
@@ -235,38 +280,70 @@ local function delay_page(y)
 end
 
 local function reverb_report()
-  local q=60000/bpm
-  local decay=q*state.decay_q
-  return string.format("perfREV "..release_label.." | Riverbero | %.3f BPM\nDecay musicale: %.3f ms (%.3f quarti)\n"
-    .."Pre-delay: %.3f ms\nPre-delay + RT60 nominale: %.3f ms\n"
-    .."RT60 indica -60 dB, non una fine netta. Verificare la definizione del parametro nel plugin.",
-    bpm,decay,state.decay_q,state.predelay,decay+state.predelay)
+  local ms=R.time_ms(state,bpm)
+  local label,meaning,use=R.category(ms/1000)
+  local lines={"perfREV "..release_label.." | Riverbero | "..N(bpm,3).." BPM",
+    label.." | "..N(ms/1000,3).." s | modalita' "..state.rev_time_mode,
+    meaning,use,"Riferimento: "..state.rev_profile.." | routing: "..state.rev_route,
+    "Parametro comune\tNome nel plugin\tValore\tSignificato"}
+  for _,row in ipairs(R.rows(state,bpm)) do lines[#lines+1]=table.concat(row,"\t") end
+  for _,warning in ipairs(R.warnings(state,bpm)) do lines[#lines+1]="ATTENZIONE: "..warning end
+  lines[#lines+1]="Solo Time in modalita' musicale deriva dai BPM; gli altri sono valori scelti dall'utente."
+  lines[#lines+1]="Nessuna impostazione applicata ai plugin. RT60 non e' una fine netta."
+  return table.concat(lines,"\n")
 end
 
 local function reverb_page(y)
-  text(24,y,"Decay in multipli del quarto: punti di partenza, non regole","text",18)
-  y=y+38
+  text(24,y,"Scegli la coda, poi leggi cosa impostare nel tuo riverbero","text",18)
+  text(24,y+29,"Corto <1 s | Medio 1-2 s | Lungo >2 s. Sono durate, NON dimensioni della stanza.","muted",14)
+  y=y+59
   for i,q in ipairs({0.5,1,1.5,2,3,4,6,8}) do
     local ms=60000/bpm*q
-    if button(N(q,1).." q | "..N(ms/1000,2).." s",24+((i-1)%4)*237,y+math.floor((i-1)/4)*37,224,state.decay_q==q) then
-      state.decay_q=q
+    local label=R.category(ms/1000)
+    local x,cy=24+((i-1)%4)*237,y+math.floor((i-1)/4)*79
+    local active=state.rev_time_mode=="musical" and state.decay_q==q
+    if button((active and "* " or "")..label.." | "..N(ms/1000,2).." s",x,cy,224,active,68) then
+      state.decay_q=q state.rev_time_mode="musical"
     end
+    text(x+10,cy+28,N(q,1).." quarti / "..N(ms,1).." ms",active and "bg" or "muted",13)
+    text(x+10,cy+48,active and "SELEZIONATO" or "Seleziona per lo specchietto",active and "bg" or "muted",11)
   end
-  y=y+95
-  if button("Decay personalizzato...",24,y,222,false) then
-    input("Decay musicale",{{"decay_q","Numero di quarti",0.25,32}})
+  y=y+168
+  if button("Quarti personalizzati...",24,y,224,state.rev_time_mode=="musical") then
+    if input("Tempo coda musicale",{{"decay_q","Numero di quarti",0.25,32}}) then state.rev_time_mode="musical" end
   end
-  local ms=60000/bpm*state.decay_q
-  text(269,y+5,N(ms,2).." ms / "..N(ms/1000,3).." s  -  "..C.decay_label(ms/1000),"accent",19)
-  y=y+48
-  if button("Pre-delay: "..N(state.predelay,2).." ms...",24,y,245,false) then
-    input("Pre-delay libero",{{"predelay","Pre-delay ms",0,500}})
+  if button("Secondi liberi...",261,y,224,state.rev_time_mode=="free") then
+    if input("Tempo coda libero",{{"rev_time_s","Secondi (indipendenti dai BPM)",0.1,60}}) then state.rev_time_mode="free" end
   end
-  if button("Copia decay ms",283,y,173,false) then copy(N(ms,3)) end
-  if button("Copia pre-delay ms",469,y,190,false) then copy(N(state.predelay,3)) end
-  y=y+48
-  text(26,y,"Pre-delay musicale (clic per impostare):","muted")
-  y=y+27
+  if button("Pre-delay: "..N(state.predelay,2).." ms...",498,y,224,false) then
+    input("Pre-delay libero",{{"predelay","Pre-delay ms (-160..500)",-160,500}})
+  end
+  if button("Report / valori",735,y,211,false) then report(reverb_report()) end
+  y=y+44
+  local ms=R.time_ms(state,bpm)
+  local label,meaning,use=R.category(ms/1000)
+  text(26,y,label.." - "..N(ms/1000,3).." s / "..N(ms,2).." ms","accent",20)
+  y=paragraph(26,y+32,meaning.." "..use,916,"text",14)+9
+  text(26,y,"RT60: calo di 60 dB, non stop esatto. Un gate o un inviluppo possono troncare la coda.","amber",14)
+  y=y+38
+  if button("Generico",24,y,140,state.rev_profile=="generic") then state.rev_profile="generic" end
+  if button("Esempio: RVerb",174,y,175,state.rev_profile=="rverb") then state.rev_profile="rverb" end
+  if button(state.rev_route=="send" and "Routing: SEND" or "Routing: INSERT",359,y,184,false) then
+    state.rev_route=state.rev_route=="send" and "insert" or "send"
+  end
+  if button("Tipo: "..R.type_name(state).."...",553,y,393,false) then
+    local names={}
+    for i,item in ipairs(R.types) do
+      names[#names+1]=(state.rev_type==i and "!" or "")..item[1]
+        ..(state.rev_profile=="rverb" and i>R.rverb_types and " (altro plugin)" or "")
+    end
+    gfx.x,gfx.y=553*scale,(y+29)*scale
+    local choice=gfx.showmenu(table.concat(names,"|"))
+    if choice>=1 and choice<=#R.types then state.rev_type=choice end
+  end
+  y=y+44
+  text(26,y,"Pre-delay musicale: clic = valore in ms, non segue i successivi cambi di BPM.","muted",13)
+  y=y+25
   for i,d in ipairs({16,32,64}) do
     local pd=C.note_ms(bpm,d)
     if button("1/"..d.." = "..N(pd,2).." ms",24+(i-1)*237,y,224,false) then
@@ -274,13 +351,55 @@ local function reverb_page(y)
       if pd>500 then notice("Pre-delay limitato a 500 ms.") end
     end
   end
-  y=y+56
-  text(26,y,"Pre-delay + RT60 nominale: "..N(state.predelay+ms,2).." ms","text",17)
-  text(26,y+33,"RT60 = calo di 60 dB: non e' un taglio netto della coda sulla griglia.","amber",15)
-  text(26,y+60,"20 ms e le categorie breve/medio/lungo sono riferimenti creativi, non valori universali.","muted",14)
-  text(26,y+87,"Per chiarezza: ascolta nel mix, filtra il ritorno e valuta ducking e automazione del send.","muted",14)
-  if button("Report riverbero",24,y+125,190,false) then report(reverb_report()) end
-  return y+173
+  if button("Copia pre-delay",735,y,211,false) then copy(N(state.predelay,3)) end
+  y=y+43
+  if button("Carattere / forma...",24,y,224,false) then
+    input("Scelte creative, NON calcolate dai BPM",{
+      {"rev_size","Size percentuale",0,100},{"rev_diffusion","Diffusion percentuale",0,100},
+      {"rev_shape","RVerb Decay (3.5 lineare)",0.04,3.5},
+      {"rev_decorr","RVerb Decorrelation 0-6",0,6,function(v) return v%1==0 end},
+    })
+  end
+  if button("Livelli / wet / gain...",261,y,224,false) then
+    input("Livelli e routing (send: consigliato wet 100)",{
+      {"rev_early","Early reflections dB",-60,6},{"rev_tail","Tail dB",-60,6},
+      {"rev_wet","Wet percentuale",0,100},{"rev_gain","Output gain dB",-60,12},
+    })
+  end
+  if button("Damping...",498,y,224,false) then
+    input("Damping (frequenze e rapporti dipendono dal plugin)",{
+      {"rev_lf","LF Hz",16,20000},{"rev_lratio","LF ratio",0.1,2},
+      {"rev_hf","HF Hz",16,20000},{"rev_hratio","HF ratio",0.1,2},
+    })
+  end
+  if button("EQ...",735,y,211,false) then
+    input("EQ della coda (shelf; non filtri universali)",{
+      {"rev_eqlf","EQ low Hz",16,20000},{"rev_eqlgain","EQ low gain dB",-24,12},
+      {"rev_eqhf","EQ high Hz",16,20000},{"rev_eqhgain","EQ high gain dB",-24,12},
+    })
+  end
+  y=y+47
+  for _,warning in ipairs(R.warnings(state,bpm)) do
+    y=paragraph(26,y,warning,916,"amber",14)+5
+  end
+  text(26,y,"SPECCHIETTO - "..(state.rev_profile=="rverb" and "Waves Renaissance Reverb (esempio)" or "Parametri comuni, nomi indicativi"),"accent",17)
+  y=paragraph(26,y+29,"Solo il tempo musicale e' calcolato dai BPM. Tutti gli altri valori sono scelte modificabili; non sono preset ottimali, conversioni universali o impostazioni applicate al VST.",916,"muted",14)+10
+  for i,row in ipairs(R.rows(state,bpm)) do
+    local row_top=y
+    if i%2==1 then rect(23,y-3,925,82,"panel") end
+    text(32,y,row[1],"text",15)
+    text(32,y+25,row[2],"muted",12)
+    if i<=2 then
+      local v=i==1 and ms/1000 or state.predelay
+      if button(row[3].."  [copia]",383,y,553,false) then copy(N(v,3)) end
+    else text(390,y+4,row[3],"accent",15) end
+    local end_y=paragraph(390,y+34,row[4],536,"muted",13)
+    y=math.max(row_top+86,end_y+15)
+  end
+  text(26,y,"RVerb: Time = secondi; Decay = forma. Size non e' una stanza in metri.","amber",14)
+  y=paragraph(26,y+27,"I limiti di frequenze, damping e controlli generici dipendono da plugin/versione. Verifica il manuale; perfREV conserva le scelte senza fingere compatibilita' universale.",916,"muted",14)
+  if button("Report completo in console",24,y+12,300,false) then report(reverb_report()) end
+  return y+65
 end
 
 local function edit_room_dimensions()
@@ -478,6 +597,7 @@ local function guide_page(y)
       .."https://www.roomeqwizard.com/help/help_en-GB/html/modalsim.html\n"
       .."https://www.izotope.com/community/blog/what-is-reverb\n"
       .."https://www.izotope.com/community/blog/essential-tips-for-mixing-reverb\n"
+      .."https://www.waves.com/1lib/pdf/plugins/renaissance-reverb.pdf\n"
       .."Nota ms = 60000/BPM * 4/denominatore. Puntata x1.5; terzina x2/3.\n"
       .."RT60 delay ideale = delay_secondi * ln(0.001)/ln(feedback).\n"
       .."Riflessione delta ms = (percorso riflesso - diretto)/c * 1000.\n"
@@ -541,15 +661,17 @@ local function loop()
   if char==1685026670 then scroll=C.clamp(scroll+65,0,max_scroll) end -- down
   if char==30064 then scroll=C.clamp(scroll-65,0,max_scroll) end -- up
   tempo()
-  rect(0,0,gfx.w/scale,gfx.h/scale,"bg")
+  theme.paint(scale,gfx.w,gfx.h)
+  theme.surface(14,49,944,83,scale)
   local pages={delay_page,reverb_page,room_page,guide_page,info_page}
   -- Draw scrolling content into a separate image, then clip it below the fixed header.
   local top,bottom=190,gfx.h/scale-74
   content_bottom=bottom
   local view=math.max(1,bottom-top)
-  gfx.setimgdim(1,gfx.w,math.max(gfx.h,math.ceil(1600*scale)))
+  gfx.setimgdim(1,gfx.w,gfx.h)
   gfx.dest=1
-  rect(0,0,gfx.w/scale,math.max(1600,gfx.h/scale),"bg")
+  theme.paint(scale,gfx.w,gfx.h)
+  theme.surface(14,top,944,view,scale)
   -- Content coordinates remain window-relative for mouse hit testing.
   drawing_content=true
   local ending=pages[state.tab](top-scroll)

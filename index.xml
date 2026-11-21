@@ -2,11 +2,19 @@
 <index version="1" name="perfREV">
   <category name="Mixing">
     <reapack name="perfREV.lua" type="script" desc="perfREV - Tempo, delay, riverbero e stanza">
-      <version name="0.1.0" author="perfREV">
-        <changelog>Build 1</changelog>
+      <version name="0.2.0" author="perfREV">
+        <changelog>Build 2</changelog>
         <source file="perfREV.lua" main="main">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/main/perfREV.lua</source>
         <source file="lib/perfrev_core.lua">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/main/lib/perfrev_core.lua</source>
         <source file="lib/perfrev_version.lua">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/main/lib/perfrev_version.lua</source>
+        <source file="lib/perfrev_reverb.lua">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/main/lib/perfrev_reverb.lua</source>
+        <source file="lib/perfrev_theme.lua">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/main/lib/perfrev_theme.lua</source>
+      </version>
+      <version name="0.1.0" author="perfREV">
+        <changelog>Build 1</changelog>
+        <source file="perfREV.lua" main="main">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/645fd8bea078bd407e129503321474fba3f6c25b/perfREV.lua</source>
+        <source file="lib/perfrev_core.lua">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/645fd8bea078bd407e129503321474fba3f6c25b/lib/perfrev_core.lua</source>
+        <source file="lib/perfrev_version.lua">https://raw.githubusercontent.com/serioroberto490-cpu/PerfREV/645fd8bea078bd407e129503321474fba3f6c25b/lib/perfrev_version.lua</source>
       </version>
     </reapack>
   </category>

@@ -37,7 +37,8 @@ local function host(initial)
   gfx={
     w=980,h=820,mouse_x=0,mouse_y=0,mouse_cap=0,mouse_wheel=0,dest=-1,
     init=function(_,w,height) gfx.w,gfx.h=w,height end,
-    set=noop,rect=noop,line=noop,circle=noop,setimgdim=noop,blit=noop,update=noop,quit=noop,
+    set=noop,rect=noop,line=noop,circle=noop,triangle=noop,setimgdim=noop,blit=noop,update=noop,quit=noop,
+    showmenu=function(menu) h.last_menu=menu local choice=h.menu_choice or 0 h.menu_choice=nil return choice end,
     setfont=function(_,_,size) h.font=size end,
     measurestr=function(s) return #s*(h.font or 15)*0.5 end,
     drawstr=function(s) h.draws[#h.draws+1]={text=s,x=gfx.x,y=gfx.y,dest=gfx.dest,font=h.font} end,
@@ -60,6 +61,17 @@ local function host(initial)
   function h.has(fragment)
     for _,d in ipairs(h.draws) do if d.text:find(fragment,1,true) then return true end end
     return false
+  end
+  function h.click_label(fragment)
+    local found
+    for _,d in ipairs(h.draws) do if d.text:find(fragment,1,true) then found=d break end end
+    check(found,"Missing control: "..fragment)
+    if found.dest==1 and (found.y<195 or found.y>gfx.h-110) then
+      gfx.mouse_wheel=-(found.y-350)/55*120
+      h.frame()
+      for _,d in ipairs(h.draws) do if d.text:find(fragment,1,true) then found=d break end end
+    end
+    h.click(found.x+3,found.y+3)
   end
   function h.footer()
     local found
@@ -84,7 +96,7 @@ local h=host()
 check(h.has("100.00 BPM"))
 h.footer()
 h.click(300,150) -- riverbero
-check(h.has("Decay in multipli"))
+check(h.has("Scegli la coda"))
 h.footer()
 h.click(530,150) -- stanza
 check(h.has("Diretto:"))
@@ -177,4 +189,57 @@ for tab=1,5 do
   check(h.next==nil,"Escape scheduled another frame")
   h.exit()
 end
+
+-- Editable reverb reference, without writing any plugin or project settings.
+h=host({tab=2})
+check(h.has("Generico") and h.has("SPECCHIETTO"))
+h.click_label("Medio | 1.20 s")
+check(h.has("Medio - 1.200 s"),"Card selection does not update the reference")
+h.click_label("Esempio: RVerb")
+check(h.has("Waves Renaissance Reverb"))
+check(h.has("RVerb Decay NON e' Time"))
+h.menu_choice=12
+h.click_label("Tipo:")
+check(h.last_menu:find("Hall 1",1,true) and h.last_menu:find("ResoVerb",1,true),"Missing RVerb types")
+check(h.has("ResoVerb"))
+h.inputs={"25"}
+h.click_label("Secondi liberi...")
+check(h.has("Lungo - 25.000 s"))
+check(h.has("fuori range 0.1-20 s"),"RVerb Time warning missing")
+h.inputs={"200"}
+h.click_label("Pre-delay:")
+check(h.has("fuori range -160/+160 ms"),"RVerb pre-delay warning missing")
+h.inputs={"-20"}
+h.click_label("Pre-delay:")
+check(h.has("Pre-delay negativo"))
+h.inputs={"0,50,1,6"}
+h.click_label("Carattere / forma")
+check(h.has("Variation 6"),"Decorrelation cannot be configured")
+check(h.has("Size / Diffusion RVerb"),"Size range warning missing")
+h.inputs={"-12,-3,35,0"}
+h.click_label("Livelli / wet")
+check(h.has("si consiglia Wet/Dry 100%"))
+h.click_label("Routing: SEND")
+check(not h.has("si consiglia Wet/Dry 100%"),"Insert incorrectly treated as send")
+h.inputs={"180,0.8,7000,1.2"}
+h.click_label("Damping...")
+h.inputs={"180,-4,7000,-6"}
+h.click_label("EQ...")
+h.inputs={"-1"} -- invalid free duration
+h.click_label("Secondi liberi...")
+check(#h.messages==1 and h.has("25.000 s"),"Invalid input changed selected time")
+h.click_label("Report / valori")
+check(h.console:find("Riferimento: rverb",1,true))
+check(h.console:find("25.000 s",1,true))
+check(h.console:find("180 Hz / 0.80",1,true),"Edited damping missing in report")
+check(h.console:find("7000 Hz / -6.0 dB",1,true),"Edited EQ missing in report")
+h.tempo=200 h.frame()
+check(h.has("Lungo - 25.000 s"),"Free duration followed BPM unexpectedly")
+h.click_label("Generico")
+check(not h.has("fuori range 0.1-20 s"),"Generic plugin got RVerb-only range warning")
+h.exit()
+check(h.ext.rev_type=="12" and h.ext.rev_shape=="1")
+check(h.ext.rev_profile=="generic" and h.ext.rev_route=="insert")
+check(h.ext.rev_time_s=="25" and h.ext.predelay=="-20")
+
 print("UI: "..assertions.." assertions passed")

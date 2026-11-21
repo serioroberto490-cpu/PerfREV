@@ -34,7 +34,9 @@ def build(base_url: str, output: Path) -> None:
     )
     version = ET.SubElement(package, "version", {"name": release, "author": "perfREV"})
     ET.SubElement(version, "changelog").text = f"Build {build_number}"
-    for name, is_main in [("perfREV.lua", True), ("lib/perfrev_core.lua", False), ("lib/perfrev_version.lua", False)]:
+    for name, is_main in [("perfREV.lua", True), ("lib/perfrev_core.lua", False),
+                          ("lib/perfrev_version.lua", False), ("lib/perfrev_reverb.lua", False),
+                          ("lib/perfrev_theme.lua", False)]:
         if not (ROOT / name).is_file():
             raise FileNotFoundError(name)
         attrs = {"file": name}
@@ -47,6 +49,12 @@ def build(base_url: str, output: Path) -> None:
         "Calcolatori non distruttivi per tempo, delay, riverbero e prime riflessioni. "
         "REAPER 6+. Nessuna estensione obbligatoria. RS ecosystem"
     )
+    # Preserve historical versions; do not silently drop downgrade paths.
+    if output.exists():
+        old_root = ET.parse(output).getroot()
+        for old in old_root.findall("./category[@name='Mixing']/reapack[@name='perfREV.lua']/version"):
+            if old.attrib.get("name") != release:
+                package.append(old)
     ET.indent(root)
     ET.ElementTree(root).write(output, encoding="utf-8", xml_declaration=True)
 

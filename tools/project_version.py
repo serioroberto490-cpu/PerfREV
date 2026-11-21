@@ -39,7 +39,8 @@ def expected_files(root: Path = ROOT) -> dict[Path, str]:
     doc = readme.read_text(encoding="utf-8")
     block = (
         START + f"\nVersione corrente: **{version}**, build **{build}**.\n"
-        f"Pacchetto corrente: `dist/perfREV-{version}-build{build}.zip`.\n" + END
+        f"ZIP previsto (non generato automaticamente): "
+        f"`dist/releases/v{version}/perfREV-{version}-build{build}.zip`.\n" + END
     )
     doc, replacements = re.subn(re.escape(START) + r".*?" + re.escape(END), block, doc, flags=re.S)
     if replacements != 1:
